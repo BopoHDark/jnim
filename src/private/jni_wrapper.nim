@@ -6,23 +6,6 @@ import os,
 
 from jvm_finder import CT_JVM, findJVM
 
-const JNI_INC_DIR = CT_JVM.root / "include"
-const JNI_HDR = "<jni.h>"
-
-when defined macosx:
-  {.passC: "-I" & JNI_INC_DIR.}
-  {.emit: """
-  #include <CoreFoundation/CoreFoundation.h>
-  """.}
-  {.passC: "-I" & JNI_INC_DIR / "darwin".}
-  {.passL: "-framework CoreFoundation".}
-elif defined windows:
-  {.passC: "-I\"" & JNI_INC_DIR & "\"".}
-  {.passC: "-I\"" & JNI_INC_DIR / "win32\"".}
-elif defined linux:
-  {.passC: "-I" & JNI_INC_DIR.}
-  {.passC: "-I" & JNI_INC_DIR / "linux".}
-
 {.warning[SmallLshouldNotBeUsed]: off.}
 
 type
@@ -34,15 +17,15 @@ proc newJNIException*(msg: string): ref JNIException =
 template jniAssert*(call: expr): stmt =
   if not `call`:
     raise newJNIException(call.astToStr & " is false")
-    
+
 template jniAssert*(call: expr, msg: string): stmt =
   if not `call`:
     raise newJNIException(msg)
-    
+
 template jniAssertEx*(call: expr, msg: string): stmt =
   if not `call`:
     raise newJNIException(msg & " (" & call.astToStr & " is false)")
-    
+
 template jniCall*(call: expr): stmt =
   let res = `call`
   if res != 0.jint:
@@ -59,33 +42,33 @@ template jniCallEx*(call: expr, msg: string): stmt =
     raise newJNIException(msg & " (" & call.astToStr & " returned " & $res & ")")
 
 type
-  jint* {.header: JNI_HDR.} = cint
-  jsize* {.header: JNI_HDR.} = jint
-  jchar* {.header: JNI_HDR.} = uint16
-  jlong* {.header: JNI_HDR.} = int64
-  jshort* {.header: JNI_HDR.} = int16
-  jbyte* {.header: JNI_HDR.} = int8
-  jfloat* {.header: JNI_HDR.} = cfloat
-  jdouble* {.header: JNI_HDR.} = cdouble
-  jboolean* {.header: JNI_HDR.} = uint8
-  jclass* {.header: JNI_HDR.} = distinct pointer
-  jmethodID* {.header: JNI_HDR.} = pointer
-  jobject* {.header: JNI_HDR.} = pointer
-  jfieldID* {.header: JNI_HDR.} = pointer
-  jstring* {.header: JNI_HDR.} = jobject
-  jthrowable* {.header: JNI_HDR.} = jobject
-  jarray* {.header: JNI_HDR.} = jobject
-  jobjectArray* {.header: JNI_HDR.} = jarray
-  jbooleanArray* {.header: JNI_HDR.} = jarray
-  jbyteArray* {.header: JNI_HDR.} = jarray
-  jcharArray* {.header: JNI_HDR.} = jarray
-  jshortArray* {.header: JNI_HDR.} = jarray
-  jintArray* {.header: JNI_HDR.} = jarray
-  jlongArray* {.header: JNI_HDR.} = jarray
-  jfloatArray* {.header: JNI_HDR.} = jarray
-  jdoubleArray* {.header: JNI_HDR.} = jarray
+  jint* = cint
+  jsize* = jint
+  jchar* = uint16
+  jlong* = int64
+  jshort* = int16
+  jbyte* = int8
+  jfloat* = cfloat
+  jdouble* = cdouble
+  jboolean* = uint8
+  jclass* = distinct pointer
+  jmethodID* = pointer
+  jobject* = pointer
+  jfieldID* = pointer
+  jstring* = jobject
+  jthrowable* = jobject
+  jarray* = jobject
+  jobjectArray* = jarray
+  jbooleanArray* = jarray
+  jbyteArray* = jarray
+  jcharArray* = jarray
+  jshortArray* = jarray
+  jintArray* = jarray
+  jlongArray* = jarray
+  jfloatArray* = jarray
+  jdoubleArray* = jarray
 
-  jvalue* {.header: JNI_HDR, union.} = object
+  jvalue* {.union.} = object
     z*: jboolean
     b*: jbyte
     c*: jchar
@@ -110,7 +93,8 @@ const JNIInvokeInterfaceImportName = when defined(android):
                                        "struct JNIInvokeInterface_"
 
 type
-  JNIInvokeInterface* {.importc: JNIInvokeInterfaceImportName, nodecl, header: JNI_HDR, incompleteStruct.} = object
+  JNIInvokeInterface* = object
+    reserved: array[3, pointer]
     DestroyJavaVM*: proc(vm: JavaVMPtr): jint {.cdecl.}
     AttachCurrentThread*: proc(vm: JavaVMPtr, penv: ptr pointer, args: pointer): jint {.cdecl.}
     DetachCurrentThread*: proc(vm: JavaVMPtr): jint {.cdecl.}
@@ -118,34 +102,141 @@ type
     AttachCurrentThreadAsDaemon*: proc(vm: JavaVMPtr, penv: ptr pointer, args: pointer): jint {.cdecl.}
   JavaVM* = ptr JNIInvokeInterface
   JavaVMPtr* = ptr JavaVM
-  JavaVMOption* {.header: JNI_HDR.} = object
+  JavaVMOption* = object
     optionString*: cstring
     extraInfo*: pointer
-  JavaVMInitArgs* {.header: JNI_HDR.} = object
+  JavaVMInitArgs* = object
     version*: jint
     nOptions*: jint
     options*: ptr JavaVMOption
     ignoreUnrecognized*: jboolean
-
-  JNINativeInterface* {.importc: JNINativeInterfaceImportName, nodecl, header: JNI_HDR, incompleteStruct.} = object
+  JNIEnv* = ptr JNINativeInterface
+  JNIEnvPtr* = ptr JNIEnv
+  JNINativeInterface* = object
+    reserved: array[4, pointer]
     GetVersion*: proc(env: JNIEnvPtr): jint {.cdecl.}
-    ExceptionCheck*: proc(env: JNIEnvPtr): jboolean {.cdecl.}
-    ExceptionOccurred*: proc(env: JNIEnvPtr): jthrowable {.cdecl.}
-    ExceptionClear*: proc(env: JNIEnvPtr) {.cdecl.}
-    GetObjectClass*: proc(env: JNIEnvPtr, obj: jobject): jclass {.cdecl.}
+
+    DefineClass*: proc(env: JNIEnvPtr, name: cstring, loader: jobject, buf: ptr jbyte, len: jsize): jclass {.cdecl.}
     FindClass*: proc(env: JNIEnvPtr, name: cstring): jclass {.cdecl.}
-    GetStringUTFChars*: proc(env: JNIEnvPtr, s: jstring, isCopy: ptr jboolean): cstring {.cdecl.}
-    ReleaseStringUTFChars*: proc(env: JNIEnvPtr, s: jstring, cstr: cstring) {.cdecl.}
-    NewStringUTF*: proc(env: JNIEnvPtr, s: cstring): jstring {.cdecl.}
+
+    FromReflectedMethod*: proc(env: JNIEnvPtr, `method`: jobject): jmethodID {.cdecl.}
+    FromReflectedField*: proc(env: JNIEnvPtr, field: jobject): jfieldID {.cdecl.}
+
+    ToReflectedMethod*: proc(env: JNIEnvPtr, cls: jclass, methodID: jmethodID, isStatic: jboolean): jobject {.cdecl.}
+
+    GetSuperclass*: proc(env: JNIEnvPtr, sub: jclass): jclass {.cdecl.}
+    IsAssignableFrom*: proc(env: JNIEnvPtr, sub, sup: jclass): jboolean {.cdecl.}
+
+    ToReflectedField*: proc(env: JNIEnvPtr, cls: jclass, fieldId: jfieldID, isStatic: jboolean): jobject {.cdecl.}
+
+    Throw*: proc(env: JNIEnvPtr, obj: jthrowable): jint {.cdecl.}
+    ThrowNew*: proc(env: JNIEnvPtr, cls: jclass, msg: cstring): jint {.cdecl.}
+    ExceptionOccurred*: proc(env: JNIEnvPtr): jthrowable {.cdecl.}
+    ExceptionDescribe*: proc(env: JNIEnvPtr) {.cdecl.}
+    ExceptionClear*: proc(env: JNIEnvPtr) {.cdecl.}
+    FatalError*: proc(env: JNIEnvPtr, msg: cstring) {.cdecl.}
+
+    PushLocalFrame*: proc(env: JNIEnvPtr, capacity: jint): jint {.cdecl.}
+    PopLocalFrame*: proc(env: JNIEnvPtr, res: jobject): jobject {.cdecl.}
+
     NewGlobalRef*: proc(env: JNIEnvPtr, obj: jobject): jobject {.cdecl.}
-    NewLocalRef*: proc(env: JNIEnvPtr, obj: jobject): jobject {.cdecl.}
     DeleteGlobalRef*: proc(env: JNIEnvPtr, obj: jobject) {.cdecl.}
     DeleteLocalRef*: proc(env: JNIEnvPtr, obj: jobject) {.cdecl.}
+    IsSameObject*: proc(env: JNIEnvPtr, o1, o2: jobject): jboolean {.cdecl.}
+    NewLocalRef*: proc(env: JNIEnvPtr, obj: jobject): jobject {.cdecl.}
+    EnsureLocalCapacity*: proc(env: JNIEnvPtr, capacity: jint): jint {.cdecl.}
 
-    GetStaticFieldID*: proc(env: JNIEnvPtr, cls: jclass, name, sig: cstring): jfieldID {.cdecl.}
-    GetStaticMethodID*: proc(env: JNIEnvPtr, cls: jclass, name, sig: cstring): jmethodID {.cdecl.}
-    GetFieldID*: proc(env: JNIEnvPtr, cls: jclass, name, sig: cstring): jfieldID {.cdecl.}
+    AllocObject*: proc(env: JNIEnvPtr, cls: jclass): jobject {.cdecl.}
+    NewObject*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID): jobject {.cdecl, varargs.}
+    reserved1: pointer # NewObjectV
+    NewObjectA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jobject {.cdecl.}
+
+    GetObjectClass*: proc(env: JNIEnvPtr, obj: jobject): jclass {.cdecl.}
+    IsInstanceOf*: proc(env: JNIEnvPtr, obj: jobject, clazz: jclass): jboolean {.cdecl.}
+
     GetMethodID*: proc(env: JNIEnvPtr, cls: jclass, name, sig: cstring): jmethodID {.cdecl.}
+
+    CallObjectMethod*: proc(env: JNIEnvPtr, obj: jobject, methodID: jmethodID): jobject {.cdecl, varargs.}
+    reserved2: pointer # CallObjectMethodV
+    CallObjectMethodA*: proc(env: JNIEnvPtr, obj: jobject, methodID: jmethodID, args: ptr jvalue): jobject {.cdecl.}
+
+    CallBooleanMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jboolean {.cdecl, varargs.}
+    reserved3: pointer # CallBooleanMethodV
+    CallBooleanMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jboolean {.cdecl.}
+
+    CallByteMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jbyte {.cdecl, varargs.}
+    reserved4: pointer # CallByteMethodV
+    CallByteMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jbyte {.cdecl.}
+
+    CallCharMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jchar {.cdecl, varargs.}
+    reserved5: pointer # CallCharMethodV
+    CallCharMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jchar {.cdecl.}
+
+    CallShortMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jshort {.cdecl, varargs.}
+    reserved6: pointer # CallShortMethodV
+    CallShortMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jshort {.cdecl.}
+
+    CallIntMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jint {.cdecl, varargs.}
+    reserved7: pointer # CallIntMethodV
+    CallIntMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jint {.cdecl.}
+
+    CallLongMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jlong {.cdecl, varargs.}
+    reserved8: pointer # CallLongMethodV
+    CallLongMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jlong {.cdecl.}
+
+    CallFloatMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jfloat {.cdecl, varargs.}
+    reserved9: pointer # CallFloatMethodV
+    CallFloatMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jfloat {.cdecl.}
+
+    CallDoubleMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jdouble {.cdecl, varargs.}
+    reserved10: pointer # CallDoubleMethodV
+    CallDoubleMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jdouble {.cdecl.}
+
+    CallVoidMethod*: proc(env: JNIEnvPtr, obj: jobject, methodID: jmethodID) {.cdecl, varargs.}
+    reserved11: pointer # CallVoidMethodV
+    CallVoidMethodA*: proc(env: JNIEnvPtr, obj: jobject, methodID: jmethodID, args: ptr jvalue) {.cdecl.}
+
+    CallNonvirtualObjectMethod*: proc(env: JNIEnvPtr, obj: jobject, methodID: jmethodID): jobject {.cdecl, varargs.}
+    reserved12: pointer # CallNonvirtualObjectMethodV
+    CallNonvirtualObjectMethodA*: proc(env: JNIEnvPtr, obj: jobject, methodID: jmethodID, args: ptr jvalue): jobject {.cdecl.}
+
+    CallNonvirtualBooleanMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jboolean {.cdecl, varargs.}
+    reserved13: pointer # CallNonvirtualBooleanMethodV
+    CallNonvirtualBooleanMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jboolean {.cdecl.}
+
+    CallNonvirtualByteMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jbyte {.cdecl, varargs.}
+    reserved14: pointer # CallNonvirtualByteMethodV
+    CallNonvirtualByteMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jbyte {.cdecl.}
+
+    CallNonvirtualCharMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jchar {.cdecl, varargs.}
+    reserved15: pointer # CallNonvirtualCharMethodV
+    CallNonvirtualCharMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jchar {.cdecl.}
+
+    CallNonvirtualShortMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jshort {.cdecl, varargs.}
+    reserved16: pointer # CallNonvirtualShortMethodV
+    CallNonvirtualShortMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jshort {.cdecl.}
+
+    CallNonvirtualIntMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jint {.cdecl, varargs.}
+    reserved17: pointer # CallNonvirtualIntMethodV
+    CallNonvirtualIntMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jint {.cdecl.}
+
+    CallNonvirtualLongMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jlong {.cdecl, varargs.}
+    reserved18: pointer # CallNonvirtualLongMethodV
+    CallNonvirtualLongMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jlong {.cdecl.}
+
+    CallNonvirtualFloatMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jfloat {.cdecl, varargs.}
+    reserved19: pointer # CallNonvirtualFloatMethodV
+    CallNonvirtualFloatMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jfloat {.cdecl.}
+
+    CallNonvirtualDoubleMethod*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID): jdouble {.cdecl, varargs.}
+    reserved20: pointer # CallNonvirtualDoubleMethodV
+    CallNonvirtualDoubleMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jdouble {.cdecl.}
+
+    CallNonvirtualVoidMethod*: proc(env: JNIEnvPtr, obj: jobject, methodID: jmethodID) {.cdecl, varargs.}
+    reserved21: pointer # CallNonvirtualVoidMethodV
+    CallNonvirtualVoidMethodA*: proc(env: JNIEnvPtr, obj: jobject, methodID: jmethodID, args: ptr jvalue) {.cdecl.}
+
+    GetFieldID*: proc(env: JNIEnvPtr, cls: jclass, name, sig: cstring): jfieldID {.cdecl.}
 
     GetObjectField*: proc(env: JNIEnvPtr, obj: jobject, fieldId: jfieldID): jobject {.cdecl.}
     GetBooleanField*: proc(env: JNIEnvPtr, obj: jobject, fieldId: jfieldID): jboolean {.cdecl.}
@@ -156,6 +247,7 @@ type
     GetLongField*: proc(env: JNIEnvPtr, obj: jobject, fieldId: jfieldID): jlong {.cdecl.}
     GetFloatField*: proc(env: JNIEnvPtr, obj: jobject, fieldId: jfieldID): jfloat {.cdecl.}
     GetDoubleField*: proc(env: JNIEnvPtr, obj: jobject, fieldId: jfieldID): jdouble {.cdecl.}
+
     SetObjectField*: proc(env: JNIEnvPtr, obj: jobject, fieldId: jfieldID, val: jobject) {.cdecl.}
     SetBooleanField*: proc(env: JNIEnvPtr, obj: jobject, fieldId: jfieldID, val: jboolean) {.cdecl.}
     SetByteField*: proc(env: JNIEnvPtr, obj: jobject, fieldId: jfieldID, val: jbyte) {.cdecl.}
@@ -166,6 +258,50 @@ type
     SetFloatField*: proc(env: JNIEnvPtr, obj: jobject, fieldId: jfieldID, val: jfloat) {.cdecl.}
     SetDoubleField*: proc(env: JNIEnvPtr, obj: jobject, fieldId: jfieldID, val: jdouble) {.cdecl.}
 
+    GetStaticMethodID*: proc(env: JNIEnvPtr, cls: jclass, name, sig: cstring): jmethodID {.cdecl.}
+
+    CallStaticObjectMethod*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID): jobject {.cdecl, varargs.}
+    reserved22: pointer # CallStaticObjectMethodV
+    CallStaticObjectMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jobject {.cdecl.}
+
+    CallStaticBooleanMethod*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID): jboolean {.cdecl, varargs.}
+    reserved23: pointer # CallStaticBooleanMethodV
+    CallStaticBooleanMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jboolean {.cdecl.}
+
+    CallStaticByteMethod*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID): jbyte {.cdecl, varargs.}
+    reserved24: pointer # CallStaticByteMethodV
+    CallStaticByteMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jbyte {.cdecl.}
+
+    CallStaticCharMethod*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID): jchar {.cdecl, varargs.}
+    reserved25: pointer # CallStaticCharMethodV
+    CallStaticCharMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jchar {.cdecl.}
+
+    CallStaticShortMethod*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID): jshort {.cdecl, varargs.}
+    reserved26: pointer # CallStaticShortMethodV
+    CallStaticShortMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jshort {.cdecl.}
+
+    CallStaticIntMethod*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID): jint {.cdecl, varargs.}
+    reserved27: pointer # CallStaticIntMethodV
+    CallStaticIntMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jint {.cdecl.}
+
+    CallStaticLongMethod*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID): jlong {.cdecl, varargs.}
+    reserved28: pointer # CallStaticLongMethodV
+    CallStaticLongMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jlong {.cdecl.}
+
+    CallStaticFloatMethod*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID): jfloat {.cdecl, varargs.}
+    reserved29: pointer # CallStaticFloatMethodV
+    CallStaticFloatMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jfloat {.cdecl.}
+
+    CallStaticDoubleMethod*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID): jdouble {.cdecl, varargs.}
+    reserved30: pointer # CallStaticDoubleMethodV
+    CallStaticDoubleMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jdouble {.cdecl.}
+
+    CallStaticVoidMethod*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID) {.cdecl, varargs.}
+    reserved31: pointer # CallStaticVoidMethodV
+    CallStaticVoidMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue) {.cdecl.}
+
+    GetStaticFieldID*: proc(env: JNIEnvPtr, cls: jclass, name, sig: cstring): jfieldID {.cdecl.}
+
     GetStaticObjectField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID): jobject {.cdecl.}
     GetStaticBooleanField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID): jboolean {.cdecl.}
     GetStaticByteField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID): jbyte {.cdecl.}
@@ -175,7 +311,7 @@ type
     GetStaticLongField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID): jlong {.cdecl.}
     GetStaticFloatField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID): jfloat {.cdecl.}
     GetStaticDoubleField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID): jdouble {.cdecl.}
-    
+
     SetStaticObjectField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID, val: jobject) {.cdecl.}
     SetStaticBooleanField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID, val: jboolean) {.cdecl.}
     SetStaticByteField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID, val: jbyte) {.cdecl.}
@@ -185,35 +321,20 @@ type
     SetStaticLongField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID, val: jlong) {.cdecl.}
     SetStaticFloatField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID, val: jfloat) {.cdecl.}
     SetStaticDoubleField*: proc(env: JNIEnvPtr, obj: jclass, fieldId: jfieldID, val: jdouble) {.cdecl.}
-    
-    NewObjectA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jobject {.cdecl.}
 
-    CallStaticVoidMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue) {.cdecl.}
-    CallVoidMethodA*: proc(env: JNIEnvPtr, obj: jobject, methodID: jmethodID, args: ptr jvalue) {.cdecl.}
+    NewString*: proc(env: JNIEnvPtr, s: ptr jchar, length: jsize): jstring {.cdecl.}
+    GetStringLength*: proc(env: JNIEnvPtr, s: jstring): jsize {.cdecl.}
+    GetStringChars*: proc(env: JNIEnvPtr, s: jstring, isCopy: ptr jboolean): ptr jchar {.cdecl.}
+    ReleaseStringChars*: proc(env: JNIEnvPtr, s: jstring, chars: ptr jchar) {.cdecl.}
 
-    CallStaticObjectMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jobject {.cdecl.}
-    CallStaticBooleanMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jboolean {.cdecl.}
-    CallStaticByteMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jbyte {.cdecl.}
-    CallStaticCharMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jchar {.cdecl.}
-    CallStaticShortMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jshort {.cdecl.}
-    CallStaticIntMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jint {.cdecl.}
-    CallStaticLongMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jlong {.cdecl.}
-    CallStaticFloatMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jfloat {.cdecl.}
-    CallStaticDoubleMethodA*: proc(env: JNIEnvPtr, clazz: jclass, methodID: jmethodID, args: ptr jvalue): jdouble {.cdecl.}
-    CallObjectMethodA*: proc(env: JNIEnvPtr, obj: jobject, methodID: jmethodID, args: ptr jvalue): jobject {.cdecl.}
-    CallBooleanMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jboolean {.cdecl.}
-    CallByteMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jbyte {.cdecl.}
-    CallCharMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jchar {.cdecl.}
-    CallShortMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jshort {.cdecl.}
-    CallIntMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jint {.cdecl.}
-    CallLongMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jlong {.cdecl.}
-    CallFloatMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jfloat {.cdecl.}
-    CallDoubleMethodA*: proc(env: JNIEnvPtr, clazz: jobject, methodID: jmethodID, args: ptr jvalue): jdouble {.cdecl.}
-    
+    NewStringUTF*: proc(env: JNIEnvPtr, s: cstring): jstring {.cdecl.}
+    GetStringUTFLength*: proc(env: JNIEnvPtr, s: jstring): jsize {.cdecl.}
+    GetStringUTFChars*: proc(env: JNIEnvPtr, s: jstring, isCopy: ptr jboolean): cstring {.cdecl.}
+    ReleaseStringUTFChars*: proc(env: JNIEnvPtr, s: jstring, cstr: cstring) {.cdecl.}
+
     GetArrayLength*: proc(env: JNIEnvPtr, arr: jarray): jsize {.cdecl.}
-    
-    NewObjectArray*: proc(env: JNIEnvPtr, size: jsize, clazz: jclass, init: jobject): jobjectArray {.cdecl.}
 
+    NewObjectArray*: proc(env: JNIEnvPtr, size: jsize, clazz: jclass, init: jobject): jobjectArray {.cdecl.}
     GetObjectArrayElement*: proc(env: JNIEnvPtr, arr: jobjectArray, index: jsize): jobject {.cdecl.}
     SetObjectArrayElement*: proc(env: JNIEnvPtr, arr: jobjectArray, index: jsize, val: jobject) {.cdecl.}
 
@@ -261,10 +382,12 @@ type
     SetLongArrayRegion*: proc(env: JNIEnvPtr, arr: jlongArray, start, len: jsize, buf: ptr jlong) {.cdecl.}
     SetFloatArrayRegion*: proc(env: JNIEnvPtr, arr: jfloatArray, start, len: jsize, buf: ptr jfloat) {.cdecl.}
     SetDoubleArrayRegion*: proc(env: JNIEnvPtr, arr: jdoubleArray, start, len: jsize, buf: ptr jdouble) {.cdecl.}
-    IsInstanceOf*: proc(env: JNIEnvPtr, obj: jobject, clazz: jclass): jboolean {.cdecl.}
 
-  JNIEnv* = ptr JNINativeInterface
-  JNIEnvPtr* = ptr JNIEnv
+    reserved32: array[13, pointer] # 13 functions, begins with RegisterNatives
+
+    ExceptionCheck*: proc(env: JNIEnvPtr): jboolean {.cdecl.}
+
+    reserved33: array[3, pointer] # 3 functions, begins with NewDirectByteBuffer
 
 const JNI_VERSION_1_1* = 0x00010001.jint
 const JNI_VERSION_1_2* = 0x00010002.jint

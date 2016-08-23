@@ -19,7 +19,7 @@ var theOptions = JVMOptions.none
 # Options for another threads
 var theOptionsPtr: pointer
 var theVM: JavaVMPtr
-var theEnv* {.threadVar}: JNIEnvPtr
+var theEnv* {.threadVar.}: JNIEnvPtr
 
 proc initJNIThread* {.gcsafe.}
 proc initJNI*(version: JNIVersion = JNIVersion.v1_6, options: seq[string] = @[]) =
@@ -229,7 +229,7 @@ proc newJVMObject*(s: string): JVMObject =
 proc get*(o: JVMObject): jobject =
   o.obj
 
-proc setObj*(o: var JVMObject, obj: jobject) =
+proc setObj*(o: JVMObject, obj: jobject) =
   o.obj = obj
 
 proc toJValue*(o: JVMObject): jvalue =

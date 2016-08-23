@@ -62,6 +62,10 @@ task test, "Run all tests":
   dep int_test_bootstrap
   test "all"
 
+task test_cpp, "Run all tests using cpp backend":
+  dep int_test_bootstrap
+  test("all", cpp = true)
+
 task test_jvm_finder, "Run jvm_finder test":
   dep int_test_bootstrap
   test "jvm_finder"
