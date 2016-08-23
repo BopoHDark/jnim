@@ -14,7 +14,7 @@ const BUILD_DIR = "build"
 template dep(name: untyped): untyped =
   exec "nim " & astToStr(name)
 
-proc buildExe(debug: bool, bin: string, src: string) =
+proc buildExe(debug: bool, bin: string, src: string, cpp = false) =
   switch("out", (thisDir() & "/" & bin).toExe)
   switch("nimcache", BUILD_DIR)
   if not debug:
@@ -35,13 +35,13 @@ proc buildExe(debug: bool, bin: string, src: string) =
   --NimblePath: src
   --NimblePath: srcDir
     
-  setCommand "c", src
+  setCommand(if cpp: "cpp" else: "c", src)
 
-proc test(name: string) =
+proc test(name: string, cpp = false) =
   if not BIN_DIR.dirExists:
     BIN_DIR.mkDir
   --run
-  buildExe true, "bin" / "test_" & name, "tests" / "test_" & name 
+  buildExe(true, "bin" / "test_" & name, "tests" / "test_" & name, cpp = cpp)
 
 proc javac(file: string, outDir: string) =
   exec "javac".toExe & " -d " & outDir & " -cp " & outDir & " " & file

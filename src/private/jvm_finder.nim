@@ -1,10 +1,10 @@
 import future, os, osproc, strutils, fp.option, fp.list
 
 type
-  JVMPath* = tuple[
-    root: string,
-    lib: string
-  ]
+  JVMPath* = object
+    root*: string
+    lib*: string
+
   JVMSearchOpts* {.pure.} = enum
     ## JVM search options.
     JavaHome,
@@ -29,11 +29,13 @@ proc findJvmInPath(p: string): Option[string] =
       return (p / lib).some
   return string.none
 
+proc initJVMPath(root, lib: string): auto = JVMPath(root: root, lib: lib)
+
 proc searchInPaths(paths = Nil[string]()): Option[JVMPath] =
-  paths.foldLeft(JVMPath.none, (res, p) => (if res.isDefined: res else: p.findJvmInPath.map(lib => (p, lib))))
+  paths.foldLeft(JVMPath.none, (res, p) => (if res.isDefined: res else: p.findJvmInPath.map(lib => initJVMPath(p, lib))))
 
 proc searchInJavaHome: Option[JVMPath] =
-  "JAVA_HOME".getEnv.some.notEmpty.flatMap((p: string) => p.findJvmInPath.map(lib => (p, lib)))
+  "JAVA_HOME".getEnv.some.notEmpty.flatMap((p: string) => p.findJvmInPath.map(lib => initJVMPath(p, lib)))
 
 proc runJavaProcess: string =
   when nimvm:

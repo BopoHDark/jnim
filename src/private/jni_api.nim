@@ -9,10 +9,11 @@ type
     v1_4 = JNI_VERSION_1_4.int,
     v1_6 = JNI_VERSION_1_6.int,
     v1_8 = JNI_VERSION_1_8.int
-  JVMOptions = tuple[
-    version: JNIVersion,
+  JVMOptions = object
+    version: JNIVersion
     options: seq[string]
-  ]
+
+proc initJVMOption(version: JNIVersion, options: seq[string]): auto = JVMOptions(version: version, options: options)
 
 var theOptions = JVMOptions.none
 # Options for another threads
@@ -24,7 +25,7 @@ proc initJNIThread* {.gcsafe.}
 proc initJNI*(version: JNIVersion = JNIVersion.v1_6, options: seq[string] = @[]) =
   ## Setup JNI API
   jniAssert(not theOptions.isDefined, "JNI API already initialized, you must deinitialize it first")
-  theOptions = (version, options).some
+  theOptions = initJVMOption(version, options).some
   theOptionsPtr = cast[pointer](theOptions)
   initJNIThread()
 
